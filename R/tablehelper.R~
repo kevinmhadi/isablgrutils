@@ -1,0 +1,100 @@
+#' @name eNROW
+#' @title does vapply NROW
+#'
+#' @description
+#'
+#' @export eNROW
+eNROW <- function(x) {
+    return(vapply(x, NROW, integer(1)))
+}
+
+
+#' @name frac
+#' @title fraction from a vector of numeric values
+#'
+#' @description
+#'
+#' @export frac
+frac = function(x) {
+    x / sum(x)
+}
+
+
+#' @name row.sort
+#' @title sort rows of integer matrix
+#'
+#' @description
+#' matrix(a[order(row(a), a)], ncol = ncol(a), byrow = TRUE)
+#' ^^ came from stackoverflow
+#' https://stackoverflow.com/questions/9506442/fastest-way-to-sort-each-row-of-a-large-matrix-in-r
+#'
+#' Rfast::rowsort is faster than the base function but it is still very fast
+#'
+#' @export row.sort
+row.sort <- function(a, use_rfast = TRUE) {
+    out = tryCatch(Rfast::rowSort(a),
+                   error = function(e) matrix(a[order(row(a), a)], ncol = ncol(a), byrow = TRUE))
+    return(out)
+}
+
+
+#' @name rows.all
+#' @title test whether all row entries are TRUE
+#'
+#' @description
+#'
+#' @export rows.all
+rows.all <- function(mat) {
+    vec = logical(NROW(mat))
+    for (i in seq_len(NROW(mat))) {
+        vec[i] = all(mat[i,])
+    }
+    return(vec)
+}
+
+#' @name rows.any
+#' @title test whether any row entries are TRUE
+#'
+#' @description
+#'
+#' @export rows.any
+rows.any <- function(mat) {
+    vec = logical(NROW(mat))
+    for (i in seq_len(NROW(mat))) {
+        vec[i] = any(mat[i,])
+    }
+    return(vec)
+}
+
+
+#' @name copydt
+#' @title copy data frame/table columns to a new data table with forced column structure
+#'
+#' @description
+#' Ensure that all columns in out data table possess the specified columns
+#' in which default values for missing columns will be NA valuess
+#'
+#' @export
+copydt = function(dt, columns, as.data.table = TRUE) {
+    out = data.frame()[seq_len(max(NROW(dt), 1)),]
+    ix = seq_len(NROW(columns))
+    outname = names(columns)
+    badnames = !nzchar(outname) | is.na(outname)
+    if (is.null(outname)) outname = columns
+    if (any(badnames)) outname[badnames] = columns[badnames]
+    for (i in ix) {
+        cn = columns[i]
+        nm = outname[i]
+        if (is.null(dt[[cn]]))
+            out[[nm]] = NA
+        else
+            out[[nm]] = rep_len(dt[[cn]], NROW(out))
+    }
+    if (NROW(dt) == 0) {
+        out = out[0,,drop=F]
+    }
+    if (as.data.table) {
+        setDT(out)
+    }
+    return(out)
+}

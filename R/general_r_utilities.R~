@@ -1,0 +1,219 @@
+#' @name match3
+#' @title similar to setkey except a general use utility
+#'
+#' very slow version of keying a la data.table
+#' but for general/interactive use
+#'
+#' @export
+match3 = function(x, table, nomatch = NA_integer_, use.data.table = TRUE) {
+    out = if (use.data.table) {
+              tryCatch({
+                  dx = data.table(x = x)[, id.x := seq_len(.N)]
+                  dtb = data.table(table = table)[, id.tb := seq_len(.N)]
+                  ## setkey(dx, x)[list(dtb$table)]$id.x
+                  setkey(dtb, table)[list(dx$x)]$id.tb
+              }, error = function(e) structure("err", class = "err"))
+          }
+    if (!is.null(out) && !inherits(out, "err")) return(out)
+    dx = within(data.frame(x = x), {id.x = seq_along(x)})
+    dtb = within(data.frame(table = table), {id.tb = seq_along(table)})
+    res = merge(dx, dtb, by.x = "x", by.y = "table", all.x = TRUE,
+                allow.cartesian = TRUE)
+    return(res$id.tb[order(res$id.x)])
+}
+
+#' @name column_to_rownames
+#' @title making column into rownames
+#'
+#' internal version that doesn't require library(tibble)
+#'
+#' @param .data a data frame/table
+#' @return a data frame/table with rownames from a column
+#' @export
+column_to_rownames = function(.data, var = "rowname", force = T, sep = " ") {
+  ## if (inherits(.data, c("data.frame", "DFrame"))) {
+  if (!is.null(dim(.data))) {
+    tmpfun = function(...) paste(..., sep = sep)
+    if (!is.null(rownames(.data)) || force) {
+      ## rn = .data[[var]]
+      if (is.numeric(var)) {
+        eva = eval(parse(text = paste(".data[,", paste("c(", paste0(var, collapse = ", "), ")"), ",drop=FALSE]")))
+        if (ncol(eva) > 1) eva = dodo.call2(dg(tmpfun), eva)
+        rn = unname(unlist(eva))
+        colix = setdiff(seq_len(ncol(.data)), var)
+      } else if (is.character(var)) {
+        eva = eval(parse(text = paste(".data[,", paste("c(", paste0(paste0("\"", var, "\""), collapse = ", "), ")"), ",drop=FALSE]")))
+        if (ncol(eva) > 1) eva = dodo.call2(dg(tmpfun), eva)
+        rn = unname(unlist(eva))
+        colix = setdiff(seq_len(ncol(.data)), match3(var,colnames(.data)))
+      }
+      eval(parse(text = paste(".data = .data[,", paste("c(", paste0(colix, collapse = ", "), ")"), ", drop = FALSE]")))
+      ## .data = .data[, colix,drop = FALSE]
+      if (inherits(.data, "tbl"))
+        .data = as.data.frame(.data)
+      if (inherits(.data, "data.frame")) {
+        rownames(.data) = make.unique(replace(as.character(rn), is.na(rn), "NA"))
+      } else {
+        rownames(.data) = replace(as.character(rn), is.na(rn), "NA")
+      }
+      return(.data)
+    } else
+      return(.data)
+  } else
+    stop("must be a data frame-like object")
+}
+
+#' @name col2rn
+#' @title alias for column_to_rownames
+#'
+#' internal version that doesn't require library(tibble)
+#'
+#' @param .data a data frame/table
+#' @return a data frame/table with rownames from a column
+#' @export
+col2rn = column_to_rownames
+
+
+#' @name rownames_to_column
+#' @title making column out of rownames
+#'
+#' internal version that doesn't require library(tibble)
+#'
+#' @param .data a data frame/table
+#' @return a data frame/table with the rownames as an additional column
+#' @export
+rownames_to_column = function(.data, var = "rowname", keep.rownames = FALSE,
+                              asdf = as.data.frame, as.data.frame = FALSE) {
+    ## if (inherits(.data, c("data.frame", "DFrame"))) {
+    as.data.frame = asdf
+    if (!is.null(dim(.data))) {
+        if (!is.null(rownames(.data))) {
+            rn = rownames(.data)
+            if (as.data.frame)
+                .data = cbind(u.var5912349879872349876 = rn, as.data.frame(.data, row.names = make.unique(rn)))
+            else
+                .data = cbind(u.var5912349879872349876 = rn, .data)
+            colnames(.data)[1] = var
+            if (keep.rownames)
+                rownames(.data) = rn
+            return(.data)
+        } else
+            return(.data)
+    } else
+        stop("must be a data frame-like object")
+}
+
+#' @name rn2col
+#' @title alias for rownames_to_column
+#'
+#' internal version that doesn't require library(tibble)
+#'
+#' @param .data a data frame/table
+#' @return a data frame/table with rownames from a column
+#' @export
+rn2col = rownames_to_column
+
+
+
+#' @name setColnames
+#' @title convenience function to set column names
+#'
+#' @param object tabled object
+#' @param nm names of the new columns
+#' @return colnamed object
+#' @export
+setColnames = function(object = nm, nm = NULL, pattern = NULL, replacement = "") {
+    if (!is.null(nm)) {
+        if (is.null(names(nm)))
+            colnames2(object)  = nm
+        else {
+            ix = match3(names(nm), colnames(object))
+            colnames2(object)[ix] = nm
+        }
+    } else if (!is.null(pattern)) {
+        colnames2(object) = gsub(pattern, replacement, colnames2(object))
+    }
+    return(object)
+}
+
+#' @name setcolnames
+#' @title convenience function to set column names
+#'
+#' alias of setColnames
+#'
+#' @param object tabled object
+#' @param nm names of the new columns
+#' @return colnamed object
+#' @export
+setcolnames = setColnames
+
+
+#' @name setRownames
+#' @title convenience function to set row names
+#'
+#' sets rownames of an object
+#'
+#' @param object tabled object
+#' @param nm names of the new columns
+#' @return rownamed object
+#' @export
+setRownames = function(object = nm, nm) {
+    rownames2(object) = nm
+    object
+}
+
+
+#' @name setrownaes
+#' @title convenience function to set row names
+#'
+#' sets rownames of an object
+#'
+#' @param object tabled object
+#' @param nm names of the new columns
+#' @return rownamed object
+#' @export
+setrownames = setRownames
+
+
+#' @name setcols
+#' @title convenience function to set columns
+#'
+#' sets columns of an object
+#'
+#' @param dt data frame/table or matrix
+#' @param old integer or character or logical vector corresponding to current colnames in dt
+#' @param new character vector for new column names
+#' @return colnamed object
+#' @export
+setcols = function(dt, old, new) {
+  if (inherits(dt, c("GRanges", "GRangesList"))) {
+    mcols(dt) = setcols(mcols(dt), old, new)
+    return(dt)
+  }
+  cnames = colnames2(dt)
+  if (missing(new) || missing(old)) {
+    if (missing(old)) {
+      old = new
+    }
+    if (is.character(old) && length(old) == length(cnames)) {
+      colnames(dt) = old
+      return(dt)
+    } else {
+      stop("names provided must be same length as ncol(dt)")
+    }
+  }
+  if (is.character(old)) {
+    out = merge(data.frame(cnames, seq_along(cnames)), data.frame(cnames = old, new = new),
+      allow.cartesian = T)
+    cnames[out[[2]]] = out[[3]]
+    colnames(dt) = cnames
+    return(dt)
+  }
+  if (is.logical(old)) {
+    if (! length(old) == length(cnames)) stop("logical vector must be same length as ncol(dt)")
+    old = which(old)
+  }
+  cnames[old] = new
+  colnames(dt) = cnames
+  return(dt)
+}
